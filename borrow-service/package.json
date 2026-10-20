@@ -1,0 +1,16 @@
+{
+  "name": "borrow-service",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Borrow and return management microservice for LibraFlow",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "mongoose": "^8.12.1"
+  }
+}

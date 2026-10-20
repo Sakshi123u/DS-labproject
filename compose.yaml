@@ -1,0 +1,111 @@
+services:
+  # 1. MongoDB Database (internal persistent storage)
+  mongo:
+    image: mongo:7.0
+    container_name: libraflow-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - libraflow-net
+    # Do not publicly expose MongoDB to host for security
+    expose:
+      - "27017"
+
+  # 2. Book Service (Port 4001)
+  book-service:
+    build:
+      context: ./book-service
+      dockerfile: Dockerfile
+    container_name: libraflow-book-service
+    restart: unless-stopped
+    environment:
+      - PORT=4001
+      - MONGODB_URI=mongodb://mongo:27017/libraflow
+    ports:
+      - "4001:4001"
+    depends_on:
+      - mongo
+    networks:
+      - libraflow-net
+
+  # 3. Notification Service (Port 4003)
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: libraflow-notification-service
+    restart: unless-stopped
+    environment:
+      - PORT=4003
+      - MONGODB_URI=mongodb://mongo:27017/libraflow
+    ports:
+      - "4003:4003"
+    depends_on:
+      - mongo
+    networks:
+      - libraflow-net
+
+  # 4. Borrow Service (Port 4002)
+  borrow-service:
+    build:
+      context: ./borrow-service
+      dockerfile: Dockerfile
+    container_name: libraflow-borrow-service
+    restart: unless-stopped
+    environment:
+      - PORT=4002
+      - BOOK_SERVICE_URL=http://book-service:4001
+      - NOTIFICATION_SERVICE_URL=http://notification-service:4003
+      - MONGODB_URI=mongodb://mongo:27017/libraflow
+    ports:
+      - "4002:4002"
+    depends_on:
+      - book-service
+      - notification-service
+      - mongo
+    networks:
+      - libraflow-net
+
+  # 5. API Gateway (Port 8080)
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: libraflow-api-gateway
+    restart: unless-stopped
+    environment:
+      - PORT=8080
+      - BOOK_SERVICE_URL=http://book-service:4001
+      - BORROW_SERVICE_URL=http://borrow-service:4002
+      - NOTIFICATION_SERVICE_URL=http://notification-service:4003
+    ports:
+      - "8080:8080"
+    depends_on:
+      - book-service
+      - borrow-service
+      - notification-service
+    networks:
+      - libraflow-net
+
+  # 6. React Frontend (Port 3000 -> 80)
+  frontend:
+    build:
+      context: .
+      dockerfile: ./frontend/Dockerfile
+    container_name: libraflow-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - libraflow-net
+
+volumes:
+  mongo-data:
+    driver: local
+
+networks:
+  libraflow-net:
+    driver: bridge
